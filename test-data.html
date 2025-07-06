@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LEF Data Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .iframe-container {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LEF Visualizer Data Test</h1>
+        <p>This page demonstrates how to send data to the LEF Visualizer via postMessage.</p>
+        
+        <div>
+            <button onclick="sendSampleData()">Send Sample Data</button>
+            <button onclick="sendEmptyData()">Send Empty Data</button>
+            <button onclick="openVisualizer()">Open Visualizer in New Tab</button>
+        </div>
+
+        <div class="iframe-container">
+            <iframe id="visualizer" src="http://localhost:5173/"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const sampleData = [
+            {
+                name: "M2_M1",
+                layers: [
+                    {
+                        layer: "MET1",
+                        rects: [[-0.8, -0.4, 0.8, 0.4]],
+                    },
+                    {
+                        layer: "Via1",
+                        rects: [[-0.4, -0.4, 0.4, 0.4]],
+                    },
+                    {
+                        layer: "Met2",
+                        rects: [[-0.4, -0.8, 0.4, 0.8]],
+                    },
+                ],
+            },
+            {
+                name: "M3_M2",
+                layers: [
+                    {
+                        layer: "Met2",
+                        rects: [[-0.2, -0.2, 0.2, 0.2]],
+                    },
+                    {
+                        layer: "Via2",
+                        rects: [[-0.1, -0.1, 0.1, 0.1]],
+                    },
+                    {
+                        layer: "Met3",
+                        rects: [[-0.2, -0.2, 0.2, 0.2]],
+                    },
+                ],
+            },
+            {
+                name: "Via23_stack_north",
+                layers: [
+                    {
+                        layer: "Met2",
+                        rects: [[-0.2, -0.2, 0.2, 0.3]],
+                    },
+                    {
+                        layer: "Via2",
+                        rects: [[-0.1, -0.1, 0.1, 0.1]],
+                    },
+                    {
+                        layer: "Met3",
+                        rects: [[-0.2, -0.2, 0.2, 0.2]],
+                    },
+                ],
+            }
+        ];
+
+        function sendSampleData() {
+            const iframe = document.getElementById('visualizer');
+            iframe.contentWindow.postMessage({
+                type: 'lef-data',
+                data: sampleData
+            }, '*');
+            console.log('Sent sample data to visualizer');
+        }
+
+        function sendEmptyData() {
+            const iframe = document.getElementById('visualizer');
+            iframe.contentWindow.postMessage({
+                type: 'lef-data',
+                data: []
+            }, '*');
+            console.log('Sent empty data to visualizer');
+        }
+
+        function openVisualizer() {
+            window.open('http://localhost:5173/', '_blank');
+        }
+
+        // Listen for messages from the visualizer (if needed)
+        window.addEventListener('message', (event) => {
+            if (event.origin !== 'http://localhost:5173') return;
+            console.log('Message from visualizer:', event.data);
+        });
+    </script>
+</body>
+</html> 
