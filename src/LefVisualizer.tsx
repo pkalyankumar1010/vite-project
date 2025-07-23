@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react"
 import { Card, Badge, Button } from "react-bootstrap"
+import { FaSearch, FaTimes } from "react-icons/fa"
 import "./LefVisualizer.css"
 
 // Define types for better type safety
@@ -180,21 +181,26 @@ const PatternDefs = ({ layerStyles, selectedLayer }: { layerStyles: Record<strin
 
 const PADDING = 40; // px, for fit
 
+const LAYER_STATES = ['display', 'highlight', 'hide'] as const;
+type LayerState = typeof LAYER_STATES[number];
+
 const ViaStackVisualization = ({
   viaStack,
   scale = 200,
   layerStyles,
   showCoordinates = true,
   showWHLabels = true,
+  layerStates,
+  setLayerStates,
 }: {
   viaStack: ViaStack
   scale: number
   layerStyles: Record<string, { fill: string; stroke: string; pattern: string }>
   showCoordinates?: boolean
   showWHLabels?: boolean
+  layerStates: Record<string, LayerState>
+  setLayerStates: (updater: (prev: Record<string, LayerState>) => Record<string, LayerState>) => void
 }) => {
-  const [selectedLayer, setSelectedLayer] = useState<string | null>(null)
-
   // Calculate bounds
   const allRects = viaStack.layers.flatMap((layer) => layer.rects)
   const minX = Math.min(...allRects.map((rect: number[]) => rect[0]))
@@ -293,6 +299,9 @@ const ViaStackVisualization = ({
   }
 
   const renderLayer = (layer: Layer, index: number) => {
+    const key = `${layer.layer}-${index}`;
+    const state = layerStates[key] || 'display';
+    if (state === 'hide') return null;
     const style = layerStyles[layer.layer] || { fill: "#999", stroke: "#666", pattern: "solid" }
     const isVia = layer.layer.toLowerCase().includes("via")
     const LABEL_OFFSET_X = 6; // px
@@ -302,7 +311,7 @@ const ViaStackVisualization = ({
     const centerYOffset = index * 18; // 18px per layer, adjust as needed
 
     return (
-      <g key={`${layer.layer}-${index}`}>
+      <g key={key}>
         {layer.rects.map((rect: number[], rectIndex: number) => {
           const [x1, y1, x2, y2] = rect
           const x = centerX + (x1 - (minX + maxX) / 2) * drawScale
@@ -310,14 +319,14 @@ const ViaStackVisualization = ({
           const w = (x2 - x1) * drawScale
           const h = (y2 - y1) * drawScale
 
-          const isSelected = selectedLayer === `${layer.layer}-${index}`
+          const isHighlighted = state === 'highlight';
 
-          // Top-left label (inside)
-          const labelX1 = x + LABEL_OFFSET_X;
-          const labelY1 = y + LABEL_OFFSET_Y;
-          // Bottom-right label (inside)
-          const labelX2 = x + w - LABEL_OFFSET_X;
-          const labelY2 = y + h - LABEL_OFFSET_BOTTOM;
+          // Lower left label (inside)
+          const labelX_LL = x + LABEL_OFFSET_X;
+          const labelY_LL = y + h - LABEL_OFFSET_BOTTOM;
+          // Upper right label (inside)
+          const labelX_UR = x + w - LABEL_OFFSET_X;
+          const labelY_UR = y + LABEL_OFFSET_Y;
 
           return (
             <g key={rectIndex}>
@@ -330,36 +339,36 @@ const ViaStackVisualization = ({
                   isVia ? `url(#viaGrid-${layer.layer.toLowerCase()})` : `url(#pattern-${layer.layer.toLowerCase()})`
                 }
                 stroke={style.stroke}
-                strokeWidth={isVia ? (isSelected ? 4 : 2) : isSelected ? 3 : 1}
-                opacity={isSelected ? 1 : 0.8}
+                strokeWidth={isVia ? (isHighlighted ? 4 : 2) : isHighlighted ? 3 : 1}
+                opacity={isHighlighted ? 1 : 0.8}
                 className="cursor-pointer transition-all duration-200 hover:opacity-100"
-                onClick={() => setSelectedLayer(isSelected ? null : `${layer.layer}-${index}`)}
+                // No onClick here, handled by badge
               />
 
               {/* Add coordinate labels always inside the rectangle, if enabled */}
               {showCoordinates && (
                 <>
               <text
-                    x={labelX1}
-                    y={labelY1}
+                x={labelX_LL}
+                y={labelY_LL}
                 className="lef-svg-text"
-                    textAnchor="start"
+                textAnchor="start"
                 fill={style.stroke}
-                    opacity={isSelected ? 1 : 0.7}
-                    fontWeight={isSelected ? 'bold' : 'normal'}
+                opacity={isHighlighted ? 1 : 0.7}
+                fontWeight={isHighlighted ? 'bold' : 'normal'}
               >
-                ({x1.toFixed(2)}, {y2.toFixed(2)})
+                ({x1.toFixed(2)}, {y1.toFixed(2)})
               </text>
               <text
-                    x={labelX2}
-                    y={labelY2}
+                x={labelX_UR}
+                y={labelY_UR}
                 className="lef-svg-text"
-                    textAnchor="end"
+                textAnchor="end"
                 fill={style.stroke}
-                    opacity={isSelected ? 1 : 0.7}
-                    fontWeight={isSelected ? 'bold' : 'normal'}
+                opacity={isHighlighted ? 1 : 0.7}
+                fontWeight={isHighlighted ? 'bold' : 'normal'}
               >
-                ({x2.toFixed(2)}, {y1.toFixed(2)})
+                ({x2.toFixed(2)}, {y2.toFixed(2)})
               </text>
                 </>
               )}
@@ -367,7 +376,7 @@ const ViaStackVisualization = ({
               {/* Center coordinate for reference, offset by index to avoid overlap */}
               <text
                 x={x + w / 2}
-                y={y + h / 2 + centerYOffset + (isSelected ? 15 : 0)}
+                y={y + h / 2 + centerYOffset + (isHighlighted ? 15 : 0)}
                 textAnchor="middle"
                 dominantBaseline="middle"
                 className="lef-svg-text"
@@ -392,26 +401,43 @@ const ViaStackVisualization = ({
     <div>
       <div>
         <div className="lef-layer-badges">
-          {viaStack.layers.map((layer, index) => (
-            <Badge
-              key={`${layer.layer}-${index}`}
-              bg={selectedLayer === `${layer.layer}-${index}` ? "primary" : "secondary"}
-              className="lef-layer-badge"
-              onClick={() =>
-                setSelectedLayer(selectedLayer === `${layer.layer}-${index}` ? null : `${layer.layer}-${index}`)
-              }
-              style={{
-                backgroundColor:
-                  selectedLayer === `${layer.layer}-${index}` ? layerStyles[layer.layer]?.fill : undefined,
-              }}
-            >
-              {layer.layer}
-            </Badge>
-          ))}
+          {viaStack.layers.map((layer, index) => {
+            const key = `${layer.layer}-${index}`;
+            const state = layerStates[key] || 'display';
+            let badgeBg = 'secondary';
+            const badgeStyle: React.CSSProperties = {};
+            if (state === 'highlight') {
+              badgeBg = 'primary';
+              badgeStyle.backgroundColor = layerStyles[layer.layer]?.fill;
+              badgeStyle.color = '#fff';
+            } else if (state === 'hide') {
+              badgeBg = 'dark';
+              badgeStyle.backgroundColor = '#eee';
+              badgeStyle.color = '#888';
+              badgeStyle.textDecoration = 'line-through';
+            }
+            return (
+              <Badge
+                key={key}
+                bg={badgeBg}
+                className="lef-layer-badge"
+                onClick={() => {
+                  setLayerStates(prev => {
+                    const current = prev[key] || 'display';
+                    const next = LAYER_STATES[(LAYER_STATES.indexOf(current) + 1) % LAYER_STATES.length];
+                    return { ...prev, [key]: next };
+                  });
+                }}
+                style={badgeStyle}
+              >
+                {layer.layer}
+              </Badge>
+            );
+          })}
         </div>
         <div ref={svgContainerRef} className="lef-svg-container">
           <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} className="lef-svg" preserveAspectRatio="xMidYMid meet">
-            <PatternDefs layerStyles={layerStyles} selectedLayer={selectedLayer ?? undefined} />
+            <PatternDefs layerStyles={layerStyles} selectedLayer={undefined} />
 
             {/* Custom grid lines centered at logical 0,0 */}
             {gridLines}
@@ -438,14 +464,61 @@ const ViaStackVisualization = ({
 
 export default function LEFVisualizer() {
   const [lefData, setLefData] = useState<ViaStack[]>(defaultLefData)
-  const [selectedViaStack, setSelectedViaStack] = useState(0)
+  const [selectedViaStackName, setSelectedViaStackName] = useState<string>("")
   const [scale, setScale] = useState(200)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showCoordinates, setShowCoordinates] = useState(true)
   const [showWHLabels, setShowWHLabels] = useState(true)
+  const [layerStates, setLayerStates] = useState<Record<string, LayerState>>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [showNoMatchToast, setShowNoMatchToast] = useState(false);
+  // Ref to store the toast timeout id
+  const toastTimeoutRef = useRef<number | null>(null);
+  // Raw filtered via stacks based on search term
+  const filteredViaStacksRaw = useMemo(() => {
+    if (!searchTerm.trim()) return lefData;
+    return lefData.filter(stack =>
+      stack.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
+    );
+  }, [lefData, searchTerm]);
+  // If no matches, show all via stacks (but show toast)
+  const filteredViaStacks = (searchTerm.trim() && filteredViaStacksRaw.length === 0)
+    ? lefData
+    : filteredViaStacksRaw;
+  // Show toast when search term is non-empty and no matches
+  useEffect(() => {
+    if (searchTerm.trim() && filteredViaStacksRaw.length === 0) {
+      setShowNoMatchToast(true);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = window.setTimeout(() => {
+        setShowNoMatchToast(false);
+        toastTimeoutRef.current = null;
+      }, 1000);
+    }
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = null;
+      }
+    };
+  }, [searchTerm, filteredViaStacksRaw]);
+
+  // Hide toast if search term is cleared
+  useEffect(() => {
+    if (!searchTerm.trim() && showNoMatchToast) {
+      setShowNoMatchToast(false);
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = null;
+      }
+    }
+  }, [searchTerm, showNoMatchToast]);
 
   // Ref for the via analysis section
   const analysisRef = useRef<HTMLDivElement | null>(null)
+  // Ref for the search input
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Message listener for receiving data
   useEffect(() => {
@@ -496,13 +569,22 @@ export default function LEFVisualizer() {
   // Generate dynamic layer styles based on the data
   const layerStyles = useMemo(() => generateLayerStyles(lefData), [lefData])
 
-  // Handler for selecting a via stack from the grid view
-  const handleGridCardSelect = (stackIndex: number) => {
-    setSelectedViaStack(stackIndex)
-    setTimeout(() => {
-      analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 0)
-  }
+  // Adjust selectedViaStackName if filtered list changes or data loads
+  useEffect(() => {
+    if (filteredViaStacks.length === 0) return;
+    // If current selected is not in filtered, reset to first filtered
+    const found = filteredViaStacks.find(stack => stack.name === selectedViaStackName);
+    if (!found) {
+      setSelectedViaStackName(filteredViaStacks[0].name);
+    }
+  }, [filteredViaStacks, selectedViaStackName]);
+
+  // Focus the search input when searchOpen becomes true
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
 
   // Show loading state if no data
   if (lefData.length === 0) {
@@ -522,6 +604,13 @@ export default function LEFVisualizer() {
       </div>
     )
   }
+
+  // No more full-page message if no matches
+
+  // Find the selected stack in the filtered list, fallback to lefData
+  const selectedStack = filteredViaStacks.find(stack => stack.name === selectedViaStackName)
+    || lefData.find(stack => stack.name === selectedViaStackName)
+    || filteredViaStacks[0];
 
   return (
     <div className="lef-container">
@@ -630,20 +719,24 @@ export default function LEFVisualizer() {
             <div className="px-3 py-2">
               <Card.Header className="lef-card-header">
                 <Card.Title className="lef-card-title">
-                  <span>{lefData[selectedViaStack].name}</span>
+                  <span>{selectedStack?.name}</span>
                   <Badge bg="outline-secondary" className="lef-badge">
-                    {lefData[selectedViaStack].layers.length} layers
+                    {selectedStack?.layers.length} layers
                   </Badge>
                 </Card.Title>
               </Card.Header>
               <Card.Body className="lef-card-content">
-                <ViaStackVisualization
-                  viaStack={lefData[selectedViaStack] as ViaStack}
-                  scale={scale}
-                  layerStyles={layerStyles}
-                  showCoordinates={showCoordinates}
-                  showWHLabels={showWHLabels}
-                />
+                {selectedStack && (
+                  <ViaStackVisualization
+                    viaStack={selectedStack as ViaStack}
+                    scale={scale}
+                    layerStyles={layerStyles}
+                    showCoordinates={showCoordinates}
+                    showWHLabels={showWHLabels}
+                    layerStates={layerStates}
+                    setLayerStates={setLayerStates}
+                  />
+                )}
               </Card.Body>
             </div>
           </Card>
@@ -652,9 +745,36 @@ export default function LEFVisualizer() {
 
       {/* Middle 60%: All Via Stacks Grid View (3 columns) */}
       <div className="lef-middle-panel">
-        <h3 className="lef-grid-title">All Via Stacks</h3>
+        <div className="lef-search-header" style={{ position: 'relative', marginBottom: 0, minHeight: 40 }}>
+          <h3 className="lef-grid-title" style={{ margin: 0, textAlign: 'center' }}>All Via Stacks</h3>
+          <div className="lef-search-anim-container">
+            <Button 
+              variant="link" 
+              onClick={() => setSearchOpen(true)} 
+              className={`lef-search-icon-btn${searchOpen ? ' lef-search-hide' : ''}`}
+              aria-label="Open search"
+              tabIndex={searchOpen ? -1 : 0}
+            >
+              <FaSearch />
+            </Button>
+            <div className={`lef-search-bar-anim${searchOpen ? ' lef-search-bar-open' : ''}`}>
+              <input
+                type="text"
+                placeholder="Search via stack name..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="form-control lef-search-input"
+                style={{ maxWidth: 300 }}
+                ref={searchInputRef}
+              />
+              <Button variant="link" onClick={() => { setSearchOpen(false); setSearchTerm(""); }} className="lef-search-close-btn" aria-label="Close search">
+                <FaTimes />
+              </Button>
+            </div>
+          </div>
+        </div>
         <div className="lef-grid-container">
-          {lefData.map((stack, stackIndex) => {
+          {filteredViaStacks.map((stack) => {
             // Fit logic for each stack
             const allRects = stack.layers.flatMap((layer) => layer.rects)
             const minX = Math.min(...allRects.map((rect: number[]) => rect[0]))
@@ -670,12 +790,12 @@ export default function LEFVisualizer() {
             const fitScaleX = (miniWidth - PADDING) / safeWidth
             const fitScaleY = (miniHeight - PADDING) / safeHeight
             const fitScale = Math.min(fitScaleX, fitScaleY)
-            const isSelected = selectedViaStack === stackIndex
+            const isSelected = selectedStack?.name === stack.name;
             return (
               <button
-                key={stackIndex}
+                key={stack.name}
                 type="button"
-                onClick={() => handleGridCardSelect(stackIndex)}
+                onClick={() => setSelectedViaStackName(stack.name)}
                 className={`lef-grid-item ${isSelected ? 'selected' : ''}`}
                 aria-pressed={isSelected}
               >
@@ -805,17 +925,20 @@ export default function LEFVisualizer() {
 
       {/* Right 15%: Via stack selection buttons */}
       <div className="lef-right-panel">
-              {lefData.map((viaStack, index) => (
-                <Button
-                  key={index}
-                  variant={selectedViaStack === index ? "primary" : "outline-secondary"}
-                  onClick={() => setSelectedViaStack(index)}
-                  className="lef-sidebar-button"
-                >
-                  <span className="text-break text-center w-100 d-block">{viaStack.name}</span>
-                </Button>
-              ))}
-            </div>
+         {filteredViaStacks.map((viaStack) => {
+           const isSelected = selectedStack?.name === viaStack.name;
+           return (
+             <Button
+               key={viaStack.name}
+               variant={isSelected ? "primary" : "outline-secondary"}
+               onClick={() => setSelectedViaStackName(viaStack.name)}
+               className="lef-sidebar-button"
+             >
+               <span className="text-break text-center w-100 d-block">{viaStack.name}</span>
+             </Button>
+           )
+         })}
+      </div>
 
       {/* Legend sidebar, more compact */}
       <div className={`lef-sidebar ${sidebarOpen ? "open" : ""}`}>
@@ -861,6 +984,21 @@ export default function LEFVisualizer() {
           </div>
         </div>
       </div>
+      {/* Toast/snackbar for no matches */}
+      {showNoMatchToast && (
+        <div
+          className="lef-toast"
+          onClick={() => {
+            setShowNoMatchToast(false);
+            if (toastTimeoutRef.current) {
+              clearTimeout(toastTimeoutRef.current);
+              toastTimeoutRef.current = null;
+            }
+          }}
+        >
+          No via stacks match your search.
+        </div>
+      )}
     </div>
   )
 }

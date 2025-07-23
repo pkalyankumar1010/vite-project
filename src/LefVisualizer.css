@@ -393,3 +393,117 @@ html, body, #root {
     grid-template-columns: repeat(2, 1fr);
   }
 } 
+
+.lef-grid-item, .lef-grid-item h4, .lef-badge {
+  color: #000 !important;
+} 
+
+.lef-search-header {
+  position: relative;
+  min-height: 40px;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  /* height: 48px; */
+}
+
+.lef-grid-title {
+  margin: 0;
+  text-align: center;
+  flex: 1 1 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+}
+
+.lef-search-anim-container {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  height: 40px;
+}
+
+.lef-search-icon-btn {
+  font-size: 22px;
+  transition: opacity 0.3s cubic-bezier(.4,0,.2,1), transform 0.3s cubic-bezier(.4,0,.2,1);
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 2;
+}
+.lef-search-hide {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.8) translateX(20px);
+}
+
+.lef-search-bar-anim {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+  transform: translateX(20px) scale(0.95);
+  transition: opacity 0.3s cubic-bezier(.4,0,.2,1), width 0.3s cubic-bezier(.4,0,.2,1), transform 0.3s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+.lef-search-bar-open {
+  opacity: 1;
+  width: 340px;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
+}
+
+.lef-search-input {
+  transition: box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border-radius: 6px;
+  font-size: 1rem;
+  margin-right: 4px;
+}
+
+.lef-search-close-btn {
+  font-size: 22px;
+  color: #888;
+  transition: color 0.2s;
+  margin-left: 0;
+}
+.lef-search-close-btn:hover {
+  color: #d00;
+} 
+
+.lef-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%) translateY(40px);
+  background: #222;
+  color: #fff;
+  padding: 14px 32px;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  font-size: 1rem;
+  z-index: 2000;
+  opacity: 0;
+  pointer-events: auto;
+  animation: lef-toast-in 0.35s cubic-bezier(.4,0,.2,1) forwards;
+  cursor: pointer;
+}
+@keyframes lef-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.lef-toast:hover {
+  background: #444;
+} 

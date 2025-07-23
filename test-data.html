@@ -96,6 +96,23 @@
                 ],
             },
             {
+                name: "M3_M4",
+                layers: [
+                    {
+                        layer: "Met3",
+                        rects: [[-0.2, -0.2, 0.2, 0.2]],
+                    },
+                    {
+                        layer: "Via",
+                        rects: [[-0.1, -0.1, 0.1, 0.1]],
+                    },
+                    {
+                        layer: "Met4",
+                        rects: [[-0.2, -0.2, 0.2, 0.2]],
+                    },
+                ],
+            },
+            {
                 name: "Via23_stack_north",
                 layers: [
                     {
@@ -133,7 +150,23 @@
         }
 
         function openVisualizer() {
-            window.open('http://localhost:5173/', '_blank');
+            const newWin = window.open('http://localhost:5173/', '_blank');
+            // Poll until the new window is loaded, then send the data
+            const sendData = () => {
+                if (!newWin || newWin.closed) return;
+                try {
+                    newWin.postMessage({
+                        type: 'lef-data',
+                        data: sampleData
+                    }, '*');
+                    // Optionally, you can clear the interval after sending
+                } catch (e) {
+                    // If the window is not ready, try again
+                    setTimeout(sendData, 200);
+                }
+            };
+            // Try to send after a short delay (may need to retry if not ready)
+            setTimeout(sendData, 500);
         }
 
         // Listen for messages from the visualizer (if needed)
